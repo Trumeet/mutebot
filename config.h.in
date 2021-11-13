@@ -1,0 +1,7 @@
+#ifndef _CONFIG_H
+#define _CONFIG_H
+
+#define VER_MAJOR	"@mutebot_VERSION_MAJOR@"
+#define VER_MINOR	"@mutebot_VERSION_MINOR@"
+
+#endif /* _CONFIG_H */
