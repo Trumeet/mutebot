@@ -44,14 +44,18 @@ bool closing = false;
 static bool sighandler_setup = false;
 static pthread_t thread_sighandler;
 
+/**
+ * Used for sigwait(2).
+ */
+sigset_t set;
+
 static void *main_sighandler(void *arg) {
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     int r;
-    sigset_t *set = arg;
     int sig;
 
     while (true) {
-        r = sigwait(set, &sig);
+        r = sigwait(&set, &sig);
         if (r) {
             fprintf(stderr, "Cannot call sigwait(): %d.\n", r);
             goto cleanup;
@@ -72,7 +76,6 @@ static void *main_sighandler(void *arg) {
 
 static int sighandler_init() {
     int r;
-    sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGTERM);
     sigaddset(&set, SIGINT);
@@ -82,7 +85,7 @@ static int sighandler_init() {
         fprintf(stderr, "Cannot call pthread_sigmask(): %d\n", r);
         goto cleanup;
     }
-    r = pthread_create(&thread_sighandler, NULL, &main_sighandler, &set);
+    r = pthread_create(&thread_sighandler, NULL, &main_sighandler, NULL);
     if (r) {
         fprintf(stderr, "Cannot call pthread_create(): %d\n", r);
         goto cleanup;
