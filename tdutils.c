@@ -66,7 +66,7 @@ static void *main_sighandler(void *arg) {
             case SIGINT:
             case SIGTERM:
                 if (td == -1) goto cleanup;
-                td_send(TdCreateObjectLogOut(), NULL, NULL);
+                td_send(TdCreateObjectLogOut(), &fetal_cb, NULL);
                 goto cleanup;
             default:
                 break;
