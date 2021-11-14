@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 int post_auth() {
-
+    return 0;
 }
 
 int main(int argc, char **argv) {
