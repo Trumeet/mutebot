@@ -17,7 +17,9 @@ struct td_callback {
 
     long long request_id;
 
-    void (*cb)(bool, struct TdObject *, struct TdError *);
+    void (*cb)(bool, struct TdObject *, struct TdError *, void *);
+
+    void *cb_arg;
 };
 
 int td = -1;
@@ -64,7 +66,7 @@ static void *main_sighandler(void *arg) {
             case SIGINT:
             case SIGTERM:
                 if (td == -1) goto cleanup;
-                td_send(TdCreateObjectLogOut(), NULL);
+                td_send(TdCreateObjectLogOut(), NULL, NULL);
                 goto cleanup;
             default:
                 break;
@@ -104,7 +106,7 @@ static int sighandler_close() {
     return r;
 }
 
-static int tdcb_push(long long request_id, void (*cb)(bool, struct TdObject *, struct TdError *)) {
+static int tdcb_push(long long request_id, void (*cb)(bool, struct TdObject *, struct TdError *, void *), void *cb_arg) {
     struct td_callback *current_ptr = malloc(sizeof(struct td_callback));
     if (current_ptr == NULL) {
         int r = errno;
@@ -114,6 +116,7 @@ static int tdcb_push(long long request_id, void (*cb)(bool, struct TdObject *, s
     current_ptr->next = NULL;
     current_ptr->request_id = request_id;
     current_ptr->cb = cb;
+    current_ptr->cb_arg = cb_arg;
     if (cbs == NULL) {
         cbs = current_ptr;
     } else {
@@ -123,7 +126,7 @@ static int tdcb_push(long long request_id, void (*cb)(bool, struct TdObject *, s
     return 0;
 }
 
-int td_send(void *func, void (*cb)(bool, struct TdObject *, struct TdError *)) {
+int td_send(void *func, void (*cb)(bool, struct TdObject *, struct TdError *, void *), void *cb_arg) {
     if (closing) {
         TdDestroyObjectFunction((struct TdFunction *)func);
         return 0;
@@ -131,7 +134,7 @@ int td_send(void *func, void (*cb)(bool, struct TdObject *, struct TdError *)) {
     if (last_req_id == LLONG_MAX) last_req_id = 0;
     last_req_id++;
     int r;
-    if (cb != NULL && (r = tdcb_push(last_req_id, cb))) {
+    if (cb != NULL && (r = tdcb_push(last_req_id, cb, cb_arg))) {
         return r;
     }
     TdCClientSend(td, (struct TdRequest) {
@@ -148,7 +151,7 @@ static int tdcb_call(long long request_id, bool successful, struct TdObject *res
     while (current_ptr != NULL) {
         if (current_ptr->request_id == request_id) {
             node_found = true;
-            current_ptr->cb(successful, result, error);
+            current_ptr->cb(successful, result, error, current_ptr->cb_arg);
             if (error != NULL &&
                 current_ptr->cb == &fetal_cb) {
                 /* The fetal_cb callback does not print anything */
@@ -207,7 +210,7 @@ int td_init() {
     if ((r = sighandler_init())) return r;
     td = TdCClientCreateId();
     TdDestroyObjectObject(TdCClientExecute((struct TdFunction *) TdCreateObjectSetLogVerbosityLevel(0)));
-    td_send(TdCreateObjectGetOption("version"), &fetal_cb);
+    td_send(TdCreateObjectGetOption("version"), &fetal_cb, NULL);
     return 0;
 }
 
@@ -218,16 +221,16 @@ void td_free() {
 
 void tg_close() {
     if (td == -1) return;
-    td_send(TdCreateObjectClose(), NULL);
+    td_send(TdCreateObjectClose(), NULL, NULL);
 }
 
-void fetal_cb(bool successful, struct TdObject *result, struct TdError *error) {
+void fetal_cb(bool successful, struct TdObject *result, struct TdError *error, void *cb_arg) {
     if (!successful) {
         tg_close();
     }
 }
 
-static void auth(bool successful, struct TdObject *result, struct TdError *error) {
+static void auth(bool successful, struct TdObject *result, struct TdError *error, void *cb_arg) {
     if (closing || successful) return;
     if (error != NULL) { /* error == NULL when caused from update handler */
         fprintf(stderr, "Invalid bot token or API ID / Hash: %s (%d)\n",
@@ -236,7 +239,7 @@ static void auth(bool successful, struct TdObject *result, struct TdError *error
         tg_close();
         return;
     }
-    td_send(TdCreateObjectCheckAuthenticationBotToken(cmd.bot_token), &auth);
+    td_send(TdCreateObjectCheckAuthenticationBotToken(cmd.bot_token), &auth, NULL);
 }
 
 static int handle_auth(const struct TdUpdateAuthorizationState *update) {
@@ -259,32 +262,33 @@ static int handle_auth(const struct TdUpdateAuthorizationState *update) {
                             false,
                             true
                     )),
-                    &fetal_cb);
+                    &fetal_cb,
+                    NULL);
             return 0;
         case CODE_AuthorizationStateWaitPhoneNumber: {
             if (cmd.logout) {
                 tg_close();
                 return 0;
             }
-            auth(false, NULL, NULL);
+            auth(false, NULL, NULL, NULL);
             return 0;
         }
         case CODE_AuthorizationStateReady: {
             if (cmd.logout) {
-                td_send(TdCreateObjectLogOut(), &fetal_cb);
+                td_send(TdCreateObjectLogOut(), &fetal_cb, NULL);
                 return 0;
             }
             return post_auth();
         }
         case CODE_AuthorizationStateWaitEncryptionKey: {
             td_send(TdCreateObjectCheckDatabaseEncryptionKey(TdCreateObjectBytes((unsigned char *) {0x0}, 0)),
-                    &fetal_cb);
+                    &fetal_cb, NULL);
             return 0;
         }
         case CODE_AuthorizationStateLoggingOut: {
             return 0;
         }
-        case CODE_AuthorizationStateClosed:
+        /* Closed state is handled in the main loop. */
         case CODE_AuthorizationStateClosing: {
             closing = true;
             return 0;
@@ -340,6 +344,7 @@ void td_loop() {
             ((struct TdUpdate *) obj)->ID == CODE_UpdateAuthorizationState &&
             ((struct TdUpdateAuthorizationState *) obj)->authorization_state_->ID ==
             CODE_AuthorizationStateClosed) {
+            closing = true;
             TdDestroyObjectObject(obj);
             return;
         }

@@ -20,6 +20,7 @@ static void restrict_user(long long chat_id, long long uid) {
     td_send(TdCreateObjectSetChatMemberStatus(chat_id,
                                               (struct TdMessageSender *) TdCreateObjectMessageSenderUser(uid),
                                               status),
+            NULL,
             NULL);
 }
 

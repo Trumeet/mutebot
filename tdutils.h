@@ -14,9 +14,9 @@ void td_loop();
 
 void tg_close();
 
-int td_send(void *func, void (*cb)(bool, struct TdObject *, struct TdError *));
+int td_send(void *func, void (*cb)(bool, struct TdObject *, struct TdError *, void *), void *cb_arg);
 
-void fetal_cb(bool successful, struct TdObject *result, struct TdError *error);
+void fetal_cb(bool successful, struct TdObject *result, struct TdError *error, void *cb_arg);
 
 int post_auth();
 
