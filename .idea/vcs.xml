@@ -2,6 +2,9 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/arch/src/mutebot" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/arch/src/mutebot/td" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/arch/src/td" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/td" vcs="Git" />
   </component>
 </project>

@@ -1,0 +1,14 @@
+[Unit]
+Description=mutebot
+Documentation=man:mutebot(1)
+After=network.target network-online.target nss-lookup.target
+
+[Service]
+Type=simple
+User=mutebot
+EnvironmentFile=/etc/mutebot/%i.conf
+ExecStartPre=/usr/bin/mutebot -l -d /var/lib/mutebot/%i/
+ExecStart=/usr/bin/mutebot -d /var/lib/mutebot/%i/
+
+[Install]
+WantedBy=multi-user.target

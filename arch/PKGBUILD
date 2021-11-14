@@ -1,0 +1,73 @@
+# Maintainer: Yuuta Liang <yuuta@yuuta.moe>
+pkgname=mutebot-git
+pkgver=r5.00391bf
+pkgrel=1
+pkgdesc="Yet another simple Telegram bot that mutes new members in groups."
+arch=(x86_64)
+url="https://github.com/Trumeet/mutebot"
+license=('custom')
+groups=()
+depends=(zlib openssl)
+makedepends=('git')
+provides=("${pkgname%-git}")
+conflicts=("${pkgname%-git}")
+replaces=()
+backup=(etc/mutebot/)
+options=()
+install=
+source=('mutebot::git+https://github.com/Trumeet/mutebot.git'
+'td::git+https://github.com/tdlib/td.git'
+'mutebot@.service'
+'sysusers.conf'
+'tmpfiles.conf'
+'default.conf')
+noextract=()
+md5sums=('SKIP'
+         'SKIP'
+         'f269f32f5c61b8ddd9bab84cb846541b'
+         '9d905a018be08f0ac09796e301949afd'
+         'b47ae2adc14a370080941b535843b095'
+         '062bd08b22c915956e2fe655204c9427')
+
+pkgver() {
+	cd "$srcdir/${pkgname%-git}"
+	printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+	cd "$srcdir/${pkgname%-git}"
+	git submodule init
+	git config submodule.td.url $srcdir/td
+	git submodule update
+}
+
+build() {
+	cd "$srcdir/${pkgname%-git}"
+	mkdir -p cmake-build-release
+	cd cmake-build-release
+	cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH="$pkgdir/usr" ..
+	make mutebot
+}
+
+check() {
+	cd "$srcdir/${pkgname%-git}"
+}
+
+package() {
+	cd "$srcdir/${pkgname%-git}"
+	mkdir -p "$pkgdir/etc/mutebot/"
+	chmod 700 "$pkgdir/etc/mutebot/"
+	install -Dm700 "$srcdir/default.conf" "$pkgdir/etc/mutebot/default.conf"
+	mkdir -p "$pkgdir/usr/lib/sysusers.d/"
+	install -Dm644 "$srcdir/sysusers.conf" "$pkgdir/usr/lib/sysusers.d/mutebot.conf"
+	mkdir -p "$pkgdir/var/lib/mutebot/"
+	chmod 700 "$pkgdir/var/lib/mutebot/"
+	mkdir -p "$pkgdir/usr/lib/tmpfiles.d/"
+	install -Dm644 "$srcdir/tmpfiles.conf" "$pkgdir/usr/lib/tmpfiles.d/mutebot.conf"
+	mkdir -p "$pkgdir/usr/lib/systemd/system/"
+	install -Dm644 "$srcdir/mutebot@.service" "$pkgdir/usr/lib/systemd/system/mutebot@.service"
+	mkdir -p "$pkgdir/usr/share/licenses/${pkgname%-git}/"
+	install -Dm644 "./LICENSE" "$pkgdir/usr/share/licenses/${pkgname%-git}/LICENSE"
+	mkdir -p "$pkgdir/usr/bin/"
+	install -Dm755 "./cmake-build-release/mutebot" "$pkgdir/usr/bin/mutebot"
+}
