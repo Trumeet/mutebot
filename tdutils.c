@@ -240,7 +240,7 @@ static int handle_auth(const struct TdUpdateAuthorizationState *update) {
     switch (update->authorization_state_->ID) {
         case CODE_AuthorizationStateWaitTdlibParameters:
             td_send(TdCreateObjectSetTdlibParameters(TdCreateObjectTdlibParameters(
-                            true,
+                            cmd.test_dc,
                             cmd.td_path,
                             NULL,
                             false,
